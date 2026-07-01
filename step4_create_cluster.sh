@@ -161,7 +161,7 @@ ${HYPERSHIFT_BIN} create cluster gcp \
   --external-dns-domain=${DNS_DOMAIN} \
   --node-pool-replicas=2 \
   --feature-set=TechPreviewNoUpgrade \
-  --disable-cluster-capabilities ImageRegistry,Console,Ingress \
+  --disable-cluster-capabilities Console,Ingress \
   --annotations "hypershift.openshift.io/pod-security-admission-label-override=baseline"
 
 echo ""
