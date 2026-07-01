@@ -12,35 +12,36 @@ SA_NAME="hypershift-operator"
 SA_EMAIL="${SA_NAME}@${CP_PROJECT_ID}.iam.gserviceaccount.com"
 EXTERNAL_DNS_GSA="external-dns@${CP_PROJECT_ID}.iam.gserviceaccount.com"
 
-# # Clone Hypershift repository
-# echo "Cloning Hypershift repository..."
-# if [ -d "hypershift" ]; then
-#     echo "Hypershift directory already exists, skipping clone"
-#     cd hypershift
-#     git pull
-# else
-#     git clone git@github.com:openshift/hypershift.git
-#     cd hypershift
-# fi
+# Clone Hypershift repository
+echo "Cloning Hypershift repository..."
+if [ -d "hypershift" ]; then
+    echo "Hypershift directory already exists, skipping clone"
+    cd hypershift
+    git pull
+else
+    git clone git@github.com:openshift/hypershift.git
+    cd hypershift
+fi
 
-# # Build Hypershift binary
-# echo "Building Hypershift binary..."
-# make hypershift
+# Build Hypershift binary
+echo "Building Hypershift binary..."
+make hypershift
 
-# # Install Hypershift operator
-# echo "Installing Hypershift operator..."
-# ./bin/hypershift install \
-#     --external-dns-provider=google \
-#     --external-dns-domain-filter="${BASE_DOMAIN}" \
-#     --external-dns-google-project="${CP_PROJECT_ID}" \
-#     --private-platform=GCP \
-#     --gcp-project="${CP_PROJECT_ID}" \
-#     --gcp-region="${GCP_REGION}" \
-#     --platform-monitoring=All \
-#     --enable-ci-debug-output \
-#     --pull-secret="${PULL_SECRET_PATH}" \
-#     --wait-until-available \
-#     --tech-preview-no-upgrade
+# Install Hypershift operator
+echo "Installing Hypershift operator..."
+./bin/hypershift install \
+    --external-dns-provider=google \
+    --external-dns-domain-filter="${BASE_DOMAIN}" \
+    --external-dns-google-project="${CP_PROJECT_ID}" \
+    --private-platform=GCP \
+    --gcp-project="${CP_PROJECT_ID}" \
+    --gcp-region="${GCP_REGION}" \
+    --platform-monitoring=All \
+    --enable-ci-debug-output \
+    --pull-secret="${PULL_SECRET_PATH}" \
+    --wait-until-available \
+    --tech-preview-no-upgrade \
+    --metrics-set All
 
 # echo "Hypershift operator installation complete!"
 
