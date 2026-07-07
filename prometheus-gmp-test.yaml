@@ -1,0 +1,133 @@
+---
+# Namespace for Prometheus
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    network.openshift.io/policy-group: monitoring
+
+---
+# Kubernetes ServiceAccount for Prometheus pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-hcp
+  namespace: monitoring
+  annotations:
+    # TODO: Replace YOUR_PROJECT_ID with your actual GCP project ID
+    iam.gke.io/gcp-service-account: prometheus-hcp-exporter@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+---
+# ClusterRole for cluster-wide metric scraping
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-hcp
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-hcp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-hcp
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-hcp
+    namespace: monitoring
+
+---
+# Prometheus Instance (matching production PR #337 configuration)
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: gmp-collector
+  namespace: monitoring
+spec:
+  # GMP-enabled Prometheus image (matching PR)
+  image: gke.gcr.io/prometheus-engine/prometheus:v2.53.5-gmp.1-gke.2
+  version: v2.53.5-gmp.1-gke.2
+
+  replicas: 1
+  serviceAccountName: prometheus-hcp
+
+  # Matching PR: 60s scrape interval
+  scrapeInterval: 60s
+  scrapeTimeout: 50s
+  evaluationInterval: 60s
+
+  # Matching PR: 6h retention (short, as metrics go to GMP)
+  retention: 6h
+
+  # Cluster-wide discovery - empty selectors match ALL namespaces
+  serviceMonitorSelector: {}
+  serviceMonitorNamespaceSelector: {}
+  podMonitorSelector: {}
+  podMonitorNamespaceSelector: {}
+  ruleSelector: {}
+  ruleNamespaceSelector: {}
+
+  # External labels added to all exported metrics
+  # TODO: Replace with your actual values
+  externalLabels:
+    cluster: "YOUR_CLUSTER_NAME"
+    region: "YOUR_REGION"
+    project_id: "YOUR_PROJECT_ID"
+    environment: "test"
+    sector: "test"
+
+  # Security context (matching PR)
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 2000
+    fsGroup: 2000
+
+  # Resources (matching PR)
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 4Gi
+
+  # Persistent storage for local TSDB
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+
+  # Cost control via --export.match flags (matching PR approach)
+  # Simplified allowlist for testing - only essential metrics exported to GMP
+  additionalArgs:
+    # Match 1: Essential non-histogram metrics
+    - name: export.match
+      value: '{__name__=~"up|apiserver_request_total|apiserver_current_inflight_requests|etcd_server_has_leader|etcd_mvcc_db_total_size_in_bytes|kube_pod_status_phase|prometheus_tsdb_head_series|prometheus_remote_storage_.*|ALERTS"}'
+
+    # Match 2: Only specific etcd histogram buckets for SLO monitoring
+    - name: export.match
+      value: '{__name__=~"etcd_disk_wal_fsync_duration_seconds_bucket|etcd_disk_backend_commit_duration_seconds_bucket"}'
+
+  # Log configuration
+  logLevel: info
+  logFormat: logfmt
