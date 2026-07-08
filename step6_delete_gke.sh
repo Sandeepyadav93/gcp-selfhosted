@@ -17,6 +17,36 @@ echo "  Cluster Name: ${CLUSTER_NAME}"
 echo "  VPC: ${VPC_NAME}"
 echo ""
 
+# Safety check: Ensure no HyperShift hosted clusters exist
+echo "=========================================="
+echo "Safety Check: Verifying no HCP clusters exist"
+echo "=========================================="
+echo ""
+
+# Check for HostedClusters in the clusters namespace
+HC_COUNT=$(kubectl get hostedclusters -n clusters --no-headers 2>/dev/null | wc -l)
+
+if [ "${HC_COUNT}" -gt 0 ]; then
+    echo "ERROR: Found ${HC_COUNT} HyperShift hosted cluster(s) still running!"
+    echo ""
+    echo "Existing hosted clusters:"
+    kubectl get hostedclusters -n clusters
+    echo ""
+    echo "You must delete all HCP clusters before deleting the management cluster."
+    echo ""
+    echo "To delete HCP clusters, run:"
+    echo "  ./step5_delete_hc_cluster.sh"
+    echo ""
+    echo "Or manually delete them:"
+    echo "  kubectl get hostedclusters -n clusters"
+    echo "  kubectl delete hostedcluster <name> -n clusters"
+    echo ""
+    exit 1
+fi
+
+echo "✓ No HCP clusters found - safe to proceed with GKE deletion"
+echo ""
+
 # Step 1: Delete GKE cluster
 echo "Step 1: Deleting GKE cluster: ${CLUSTER_NAME}"
 if gcloud container clusters describe "${CLUSTER_NAME}" --region="${GCP_REGION}" --project="${CP_PROJECT_ID}" &>/dev/null; then

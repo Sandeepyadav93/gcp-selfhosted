@@ -5,7 +5,7 @@ set +e
 # Configuration variables
 export HC_NAME="${HC_NAME:-hc1}"
 export HC_NAMESPACE="${HC_NAMESPACE:-clusters}"
-export GCP_PROJECT_ID="${GCP_PROJECT_ID:-your-gcp-project-id}"
+export CP_PROJECT_ID="${CP_PROJECT_ID:-your-gcp-project-id}"
 export GCP_REGION="${GCP_REGION:-us-central1}"
 export HYPERSHIFT_BIN="${HYPERSHIFT_BIN:-./hypershift/bin/hypershift}"
 
@@ -19,7 +19,7 @@ fi
 echo "Deleting HyperShift cluster with the following configuration:"
 echo "  Cluster Name: ${HC_NAME}"
 echo "  Namespace: ${HC_NAMESPACE}"
-echo "  GCP Project: ${GCP_PROJECT_ID}"
+echo "  GCP Project: ${CP_PROJECT_ID}"
 echo "  GCP Region: ${GCP_REGION}"
 echo ""
 
@@ -42,7 +42,7 @@ echo ""
 echo "Step 2: Deleting infrastructure..."
 ${HYPERSHIFT_BIN} destroy infra gcp \
   --infra-id="${HC_NAME}" \
-  --project-id="${GCP_PROJECT_ID}" \
+  --project-id="$CP_PROJECT_ID}" \
   --region="${GCP_REGION}"
 
 echo "Infrastructure deleted successfully!"
@@ -52,7 +52,7 @@ echo ""
 echo "Step 3: Deleting IAM resources..."
 ${HYPERSHIFT_BIN} destroy iam gcp \
   --infra-id="${HC_NAME}" \
-  --project-id="${GCP_PROJECT_ID}"
+  --project-id="${CP_PROJECT_ID}"
 
 echo "IAM resources deleted successfully!"
 echo ""
