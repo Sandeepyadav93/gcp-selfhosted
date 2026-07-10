@@ -17,7 +17,7 @@ export HC_NAME="${HC_NAME:-hc1}"
 export HC_NAMESPACE="${HC_NAMESPACE:-clusters}"
 export RELEASE_IMAGE="${RELEASE_IMAGE:-quay.io/openshift-release-dev/ocp-release:5.0.0-ec.3-x86_64}"
 export PULL_SECRET_PATH="${PULL_SECRET_PATH:-/path/to/pull-secret}"
-export DNS_DOMAIN="${DNS_DOMAIN:-${HC_NAME}.your-base-domain.example.com}"
+export DNS_DOMAIN="${DNS_DOMAIN:-${HC_NAME}.${BASE_DOMAIN}}"
 export HYPERSHIFT_BIN="${HYPERSHIFT_BIN:-./hypershift/bin/hypershift}"
 
 # Verify hypershift binary exists

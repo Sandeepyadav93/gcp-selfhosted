@@ -1,1 +1,7 @@
 .env
+iam-output.json
+infra-output.json
+jwks.json
+sa-signer.key
+sa-signer.pub
+hypershift/
