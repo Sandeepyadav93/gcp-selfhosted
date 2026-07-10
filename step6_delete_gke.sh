@@ -1,6 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+# Source environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/.env" ]; then
+    source "${SCRIPT_DIR}/.env"
+    echo "✓ Sourced environment variables from .env"
+else
+    echo "WARNING: .env file not found at ${SCRIPT_DIR}/.env"
+fi
+
 # GCP Configuration - must match step1_deploy_gke.sh
 export CP_PROJECT_ID="${CP_PROJECT_ID:-your-gcp-project-id}"
 export GCP_REGION="${GCP_REGION:-us-central1}"

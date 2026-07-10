@@ -2,6 +2,15 @@
 # Don't exit on error for cluster deletion
 set +e
 
+# Source environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/.env" ]; then
+    source "${SCRIPT_DIR}/.env"
+    echo "✓ Sourced environment variables from .env"
+else
+    echo "WARNING: .env file not found at ${SCRIPT_DIR}/.env"
+fi
+
 # Configuration variables
 export HC_NAME="${HC_NAME:-hc1}"
 export HC_NAMESPACE="${HC_NAMESPACE:-clusters}"
