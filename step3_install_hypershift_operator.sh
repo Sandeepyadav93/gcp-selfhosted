@@ -21,38 +21,42 @@ SA_NAME="hypershift-operator"
 SA_EMAIL="${SA_NAME}@${CP_PROJECT_ID}.iam.gserviceaccount.com"
 EXTERNAL_DNS_GSA="external-dns@${CP_PROJECT_ID}.iam.gserviceaccount.com"
 
-# Clone Hypershift repository
-echo "Cloning Hypershift repository..."
-if [ -d "hypershift" ]; then
-    echo "Hypershift directory already exists, skipping clone"
-    cd hypershift
-    git pull
+SKIP_HYPERSHIFT_INSTALL="${SKIP_HYPERSHIFT_INSTALL:-true}"
+
+if [ "${SKIP_HYPERSHIFT_INSTALL}" != "true" ]; then
+    # Clone Hypershift repository
+    echo "Cloning Hypershift repository..."
+    if [ -d "hypershift" ]; then
+        echo "Hypershift directory already exists, skipping clone"
+        cd hypershift
+        git pull
+    else
+        git clone git@github.com:openshift/hypershift.git
+        cd hypershift
+    fi
+
+    # Build Hypershift binary
+    echo "Building Hypershift binary..."
+    make hypershift
+
+    # Install Hypershift operator
+    echo "Installing Hypershift operator..."
+    ./bin/hypershift install \
+        --external-dns-provider=google \
+        --external-dns-domain-filter="${BASE_DOMAIN}" \
+        --external-dns-google-project="${CP_PROJECT_ID}" \
+        --private-platform=GCP \
+        --gcp-project="${CP_PROJECT_ID}" \
+        --gcp-region="${GCP_REGION}" \
+        --platform-monitoring=All \
+        --enable-ci-debug-output \
+        --pull-secret="${PULL_SECRET_PATH}" \
+        --wait-until-available \
+        --tech-preview-no-upgrade \
+        --metrics-set All
 else
-    git clone git@github.com:openshift/hypershift.git
-    cd hypershift
+    echo "Skipping hypershift clone/build/install (SKIP_HYPERSHIFT_INSTALL=true)"
 fi
-
-# Build Hypershift binary
-echo "Building Hypershift binary..."
-make hypershift
-
-# Install Hypershift operator
-echo "Installing Hypershift operator..."
-./bin/hypershift install \
-    --external-dns-provider=google \
-    --external-dns-domain-filter="${BASE_DOMAIN}" \
-    --external-dns-google-project="${CP_PROJECT_ID}" \
-    --private-platform=GCP \
-    --gcp-project="${CP_PROJECT_ID}" \
-    --gcp-region="${GCP_REGION}" \
-    --platform-monitoring=All \
-    --enable-ci-debug-output \
-    --pull-secret="${PULL_SECRET_PATH}" \
-    --wait-until-available \
-    --tech-preview-no-upgrade \
-    --metrics-set All
-
-# echo "Hypershift operator installation complete!"
 
 # Annotate K8s ServiceAccount for Workload Identity
 echo "Annotating K8s ServiceAccount for Workload Identity"
