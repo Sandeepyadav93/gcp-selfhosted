@@ -51,7 +51,7 @@ echo ""
 echo "Step 2: Deleting infrastructure..."
 ${HYPERSHIFT_BIN} destroy infra gcp \
   --infra-id="${HC_NAME}" \
-  --project-id="$CP_PROJECT_ID}" \
+  --project-id="${CP_PROJECT_ID}" \
   --region="${GCP_REGION}"
 
 echo "Infrastructure deleted successfully!"
