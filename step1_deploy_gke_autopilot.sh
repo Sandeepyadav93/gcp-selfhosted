@@ -64,7 +64,8 @@ gcloud container clusters create-auto "${CLUSTER_NAME}" \
     --release-channel="${RELEASE_CHANNEL}" \
     --labels="billing-tag=${CLUSTER_NAME}" \
     --monitoring=SYSTEM,API_SERVER,CONTROLLER_MANAGER,SCHEDULER,HPA,STATEFULSET,DEPLOYMENT,DAEMONSET,POD,STORAGE,CADVISOR,KUBELET \
-    --enable-private-nodes
+    --enable-private-nodes \
+    --enable-kubernetes-unstable-apis=admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicies,admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicybindings
 
 # Prepare the GKE cluster to be used as Management Cluster (MC)
 echo "Creating ${PSC_COUNT} PSC subnets for hosted control plane"
@@ -83,6 +84,13 @@ for i in $(seq 1 ${PSC_COUNT}); do
 done
 
 echo "PSC subnets creation complete! Created ${PSC_COUNT} PSC subnets."
+
+# Apply MutatingAdmissionPolicy for Autopilot HA support
+# GKE Autopilot enforces 500m CPU minimum for pods with anti-affinity.
+# HA mode adds anti-affinity to etcd/control-plane pods which default below that.
+# This policy auto-bumps CPU requests to meet the minimum.
+echo "Applying MutatingAdmissionPolicy for Autopilot HA CPU fix..."
+oc apply -f https://raw.githubusercontent.com/openshift-online/gcp-hcp-infra/main/kustomize/hypershift/mutating-admission-policy-autopilot-cpu.yaml
 
 echo "GKE cluster deployment complete! Cluster ${CLUSTER_NAME} is ready."
 echo "Next step: Run step2_install_prerequisites.sh to install required CRDs and cert-manager."

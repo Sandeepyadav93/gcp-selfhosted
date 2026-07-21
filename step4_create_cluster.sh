@@ -171,6 +171,8 @@ ${HYPERSHIFT_BIN} create cluster gcp \
   --node-pool-replicas=2 \
   --feature-set=TechPreviewNoUpgrade \
   --disable-cluster-capabilities Console,Ingress \
+  --control-plane-availability-policy=HighlyAvailable \
+  --infra-availability-policy=HighlyAvailable \
   --annotations "hypershift.openshift.io/pod-security-admission-label-override=baseline"
 
 echo ""
