@@ -1,0 +1,61 @@
+# MutatingAdmissionPolicy to enforce minimum 500m total CPU request on HCP
+# workloads that use pod anti-affinity.
+#
+# GKE Autopilot enforces a minimum 500m CPU request (total per pod) for pods
+# using pod anti-affinity (HighlyAvailable topology). This policy only targets
+# workloads that have podAntiAffinity configured, and bumps the primary
+# container's (containers[0]) CPU request so the pod total reaches exactly
+# 500m.
+#
+# This is needed because the annotation-based resource-request-override
+# mechanism cannot be used for all components (e.g., openshift-route-controller-manager
+# exceeds the 63-character Kubernetes annotation name limit).
+#
+# Requires: Kubernetes beta API admissionregistration.k8s.io/v1beta1
+# (enabled via enable_k8s_beta_apis in the management-cluster Terraform module)
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: autopilot-min-cpu-request
+spec:
+  reinvocationPolicy: IfNeeded
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["deployments", "statefulsets"]
+        operations: ["CREATE", "UPDATE"]
+    namespaceSelector:
+      matchLabels:
+        hypershift.openshift.io/hosted-control-plane: "true"
+  matchConditions:
+    - name: has-pod-anti-affinity
+      expression: >-
+        has(object.spec.template.spec.affinity) &&
+        has(object.spec.template.spec.affinity.podAntiAffinity)
+    - name: total-cpu-below-minimum
+      expression: >-
+        object.spec.template.spec.containers.map(c,
+        quantity(c.resources.requests.cpu).asApproximateFloat()).sum() < 0.5
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        # Calculate: 500m - (sum of sidecar CPUs) = CPU needed for container[0]
+        expression: >-
+          [
+            JSONPatch{
+              op: "replace",
+              path: "/spec/template/spec/containers/0/resources/requests/cpu",
+              value: string(int((0.5 - (
+                object.spec.template.spec.containers.map(c, quantity(c.resources.requests.cpu).asApproximateFloat()).sum()
+                - quantity(object.spec.template.spec.containers[0].resources.requests.cpu).asApproximateFloat()
+              )) * 1000.0)) + "m"
+            }
+          ]
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: autopilot-min-cpu-request
+spec:
+  policyName: autopilot-min-cpu-request

@@ -11,17 +11,15 @@ else
 fi
 
 # ============================================================================
-# Deploy Prometheus Instance with GMP Export
+# Deploy Prometheus Instance with GMP Export (with node isolation)
 # ============================================================================
 # This script deploys a Prometheus instance (via Prometheus CR) that:
 # - Collects metrics from all ServiceMonitors/PodMonitors cluster-wide
 # - Evaluates PrometheusRules locally
 # - Exports filtered metrics to Google Managed Prometheus (GMP)
 #
-# This matches production PR #337 architecture:
-# - Uses Google's GMP-enabled Prometheus image
-# - Two-tier collection: all metrics local, filtered subset in GMP
-# - Cost control via --export.match flags
+# Includes tolerations and nodeSelector for dedicated prometheus node pool
+# isolation. Works on both GKE Standard and Autopilot.
 # ============================================================================
 
 # Configuration
@@ -34,7 +32,7 @@ PROMETHEUS_PUBLIC_SVC_YAML="prom-public-svc.yaml"
 MONITORING_NAMESPACE="monitoring"
 
 echo "=========================================="
-echo "Deploying Prometheus with GMP Export"
+echo "Deploying Prometheus with GMP Export (with node isolation)"
 echo "=========================================="
 echo ""
 echo "Configuration:"
@@ -42,6 +40,7 @@ echo "  Project ID: ${CP_PROJECT_ID}"
 echo "  Region: ${GCP_REGION}"
 echo "  Cluster: ${CLUSTER_NAME}"
 echo "  Namespace: ${MONITORING_NAMESPACE}"
+echo "  Node isolation: dedicated=prometheus (taint + nodeSelector)"
 echo ""
 
 # ============================================================================
@@ -68,7 +67,7 @@ if ! kubectl get deployment -n prometheus-operator -l app.kubernetes.io/name=pro
 fi
 echo "  ✓ Prometheus Operator is running"
 
-# Check if prometheus-gmp-test.yaml exists
+# Check if prometheus-gmp-standard.yaml exists
 if [ ! -f "${PROMETHEUS_YAML}" ]; then
     echo "ERROR: ${PROMETHEUS_YAML} not found in current directory"
     echo "Please ensure the file exists at: $(pwd)/${PROMETHEUS_YAML}"
@@ -206,6 +205,31 @@ fi
 echo ""
 
 # ============================================================================
+# Verify node isolation
+# ============================================================================
+echo "=========================================="
+echo "Node Isolation Verification"
+echo "=========================================="
+echo ""
+
+echo "Prometheus pod placement:"
+kubectl get pods -n "${MONITORING_NAMESPACE}" -o wide
+echo ""
+
+PROM_NODE=$(kubectl get pod prometheus-gmp-collector-0 -n "${MONITORING_NAMESPACE}" -o jsonpath='{.spec.nodeName}' 2>/dev/null)
+if [ -n "$PROM_NODE" ]; then
+    NODE_LABELS=$(kubectl get node "$PROM_NODE" -o jsonpath='{.metadata.labels.dedicated}' 2>/dev/null)
+    if [ "$NODE_LABELS" = "prometheus" ]; then
+        echo "✓ Prometheus pod is running on dedicated prometheus node: ${PROM_NODE}"
+    else
+        echo "⚠ WARNING: Prometheus pod is NOT on a dedicated prometheus node!"
+        echo "  Node: ${PROM_NODE}"
+        echo "  Expected label 'dedicated=prometheus' but got: ${NODE_LABELS}"
+    fi
+fi
+echo ""
+
+# ============================================================================
 # Verification
 # ============================================================================
 echo "=========================================="
@@ -222,7 +246,7 @@ kubectl get statefulset -n "${MONITORING_NAMESPACE}"
 echo ""
 
 echo "Pods:"
-kubectl get pods -n "${MONITORING_NAMESPACE}"
+kubectl get pods -n "${MONITORING_NAMESPACE}" -o wide
 echo ""
 
 echo "Services:"
@@ -257,7 +281,7 @@ echo ""
 # Success message and next steps
 # ============================================================================
 echo "=========================================="
-echo "✓ Prometheus Deployment Complete!"
+echo "✓ Prometheus Deployment Complete! (with node isolation)"
 echo "=========================================="
 echo ""
 echo "Hybrid GMP Architecture is now operational:"
@@ -267,6 +291,7 @@ echo "  ✓ Local storage: 6h retention (50Gi PVC)"
 echo "  ✓ Cluster-wide discovery: ${SERVICEMONITOR_COUNT} ServiceMonitors, ${PODMONITOR_COUNT} PodMonitors"
 echo "  ✓ Cost filtering: only allowlisted metrics exported to GMP"
 echo "  ✓ GMP export: metrics flowing to project ${CP_PROJECT_ID}"
+echo "  ✓ Node isolation: running on dedicated prometheus node pool"
 echo ""
 echo "Next steps:"
 echo ""

@@ -11,27 +11,26 @@ else
 fi
 
 # ============================================================================
-# Install Prometheus Operator for GMP Hybrid Architecture
+# Install Prometheus Operator for GMP Hybrid Architecture (with node isolation)
 # ============================================================================
 # This script installs ONLY the Prometheus Operator (controller), not any
 # Prometheus instances. The operator watches for Prometheus CRs and manages
 # Prometheus StatefulSets.
 #
-# This matches production PR #337 approach:
-# - Uses kube-prometheus-stack Helm chart in operator-only mode
-# - All components except operator are disabled
-# - CRDs are installed by the chart
+# Configures the operator pod with tolerations and nodeSelector for dedicated
+# prometheus node pool isolation. Works on both GKE Standard and Autopilot.
 # ============================================================================
 
 PROMETHEUS_OPERATOR_VERSION="79.2.1"
 PROMETHEUS_OPERATOR_NAMESPACE="prometheus-operator"
 
 echo "=========================================="
-echo "Installing Prometheus Operator"
+echo "Installing Prometheus Operator (with node isolation)"
 echo "=========================================="
 echo ""
 echo "Version: ${PROMETHEUS_OPERATOR_VERSION}"
 echo "Namespace: ${PROMETHEUS_OPERATOR_NAMESPACE}"
+echo "Node isolation: dedicated=prometheus (taint + nodeSelector)"
 echo ""
 
 # ============================================================================
@@ -91,7 +90,7 @@ fi
 echo ""
 
 # ============================================================================
-# Install Prometheus Operator (operator-only mode)
+# Install Prometheus Operator (operator-only mode, with node isolation)
 # ============================================================================
 echo "Installing Prometheus Operator ${PROMETHEUS_OPERATOR_VERSION}..."
 echo ""
@@ -105,6 +104,7 @@ echo "  - Node Exporter: disabled"
 echo "  - Kube State Metrics: disabled"
 echo "  - Default Rules: disabled"
 echo "  - ServiceMonitors for K8s components: disabled"
+echo "  - Node isolation: tolerations + nodeSelector for dedicated prometheus pool"
 echo ""
 
 helm install prometheus-operator prometheus-community/kube-prometheus-stack \
@@ -124,7 +124,12 @@ helm install prometheus-operator prometheus-community/kube-prometheus-stack \
   --set coreDns.enabled=false \
   --set kubeEtcd.enabled=false \
   --set kubeScheduler.enabled=false \
-  --set kubeProxy.enabled=false
+  --set kubeProxy.enabled=false \
+  --set prometheusOperator.tolerations[0].key=dedicated \
+  --set prometheusOperator.tolerations[0].operator=Equal \
+  --set prometheusOperator.tolerations[0].value=prometheus \
+  --set prometheusOperator.tolerations[0].effect=NoSchedule \
+  --set prometheusOperator.nodeSelector.dedicated=prometheus
 
 echo ""
 echo "✓ Prometheus Operator Helm chart installed"
@@ -260,7 +265,7 @@ kubectl get deployment -n "${PROMETHEUS_OPERATOR_NAMESPACE}"
 echo ""
 
 echo "Pods in ${PROMETHEUS_OPERATOR_NAMESPACE}:"
-kubectl get pods -n "${PROMETHEUS_OPERATOR_NAMESPACE}"
+kubectl get pods -n "${PROMETHEUS_OPERATOR_NAMESPACE}" -o wide
 echo ""
 
 echo "Prometheus Operator CRDs:"
@@ -271,14 +276,15 @@ echo ""
 # Success message
 # ============================================================================
 echo "=========================================="
-echo "✓ Prometheus Operator Installation Complete!"
+echo "✓ Prometheus Operator Installation Complete! (with node isolation)"
 echo "=========================================="
 echo ""
-echo "The Prometheus Operator (controller) is now running."
+echo "The Prometheus Operator (controller) is now running on the dedicated prometheus node pool."
 echo "It watches for Prometheus, ServiceMonitor, PodMonitor, and PrometheusRule CRs."
 echo ""
 echo "Next steps:"
 echo "  1. Deploy Prometheus instance with step8_deploy_prometheus_gmp.sh"
+echo "     (prometheus-gmp-test.yaml includes node isolation)"
 echo "  2. Prometheus will automatically discover ServiceMonitors/PodMonitors cluster-wide"
 echo "  3. Metrics will be exported to Google Managed Prometheus (GMP)"
 echo ""

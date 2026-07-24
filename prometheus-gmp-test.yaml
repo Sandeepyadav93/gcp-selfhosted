@@ -54,7 +54,7 @@ subjects:
     namespace: monitoring
 
 ---
-# Prometheus Instance (matching production PR #337 configuration)
+# Prometheus Instance (GKE Standard variant with node isolation)
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -92,6 +92,15 @@ spec:
     project_id: "YOUR_PROJECT_ID"
     environment: "test"
     sector: "test"
+
+  # Node isolation: schedule only on the dedicated prometheus node pool
+  nodeSelector:
+    dedicated: prometheus
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "prometheus"
+      effect: "NoSchedule"
 
   # Security context (matching PR)
   securityContext:

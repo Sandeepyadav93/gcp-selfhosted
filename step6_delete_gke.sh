@@ -33,7 +33,8 @@ echo "=========================================="
 echo ""
 
 # Check for HostedClusters in the clusters namespace
-HC_COUNT=$(kubectl get hostedclusters -n clusters --no-headers 2>/dev/null | wc -l)
+# If the CRD doesn't exist, there are no hosted clusters to worry about
+HC_COUNT=$(kubectl get hostedclusters -n clusters --no-headers 2>/dev/null | wc -l || true)
 
 if [ "${HC_COUNT}" -gt 0 ]; then
     echo "ERROR: Found ${HC_COUNT} HyperShift hosted cluster(s) still running!"

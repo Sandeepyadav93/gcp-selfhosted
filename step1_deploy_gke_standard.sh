@@ -25,6 +25,10 @@ export NUM_WORKER_PER_ZONE=${NUM_WORKER_PER_ZONE:-1}
 export WORKER_TYPE=${WORKER_TYPE:-n2-standard-4}
 export MAX_PODS_PER_WORKER=${MAX_PODS_PER_WORKER:-110}
 
+# Prometheus dedicated node pool settings
+export PROM_WORKER_TYPE=${PROM_WORKER_TYPE:-e2-standard-4}
+export PROM_NUM_NODES=${PROM_NUM_NODES:-1}
+
 # IP Ranges
 export PRIMARY_RANGE="10.0.0.0/20"
 export POD_RANGE="10.4.0.0/14"
@@ -105,6 +109,21 @@ for i in $(seq 1 ${PSC_COUNT}); do
 done
 
 echo "✅ PSC subnets creation complete! Created ${PSC_COUNT} PSC subnets."
+
+# --- 7. Create dedicated node pool for Prometheus ---
+echo "Creating dedicated Prometheus node pool: ${CLUSTER_NAME}-prometheus-pool"
+gcloud container node-pools create "${CLUSTER_NAME}-prometheus-pool" \
+    --project="${CP_PROJECT_ID}" \
+    --cluster="${CLUSTER_NAME}" \
+    --region="${GCP_REGION}" \
+    --num-nodes="${PROM_NUM_NODES}" \
+    --machine-type="${PROM_WORKER_TYPE}" \
+    --max-pods-per-node="${MAX_PODS_PER_WORKER}" \
+    --node-taints=dedicated=prometheus:NoSchedule \
+    --node-labels=dedicated=prometheus \
+    --scopes=cloud-platform
+
+echo "✅ Dedicated Prometheus node pool created."
 echo "✅ Deployment Successful!"
 echo "GKE Standard cluster ${CLUSTER_NAME} is ready."
 echo ""

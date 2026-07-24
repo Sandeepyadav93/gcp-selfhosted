@@ -90,7 +90,7 @@ echo "PSC subnets creation complete! Created ${PSC_COUNT} PSC subnets."
 # HA mode adds anti-affinity to etcd/control-plane pods which default below that.
 # This policy auto-bumps CPU requests to meet the minimum.
 echo "Applying MutatingAdmissionPolicy for Autopilot HA CPU fix..."
-oc apply -f https://raw.githubusercontent.com/openshift-online/gcp-hcp-infra/main/kustomize/hypershift/mutating-admission-policy-autopilot-cpu.yaml
+oc apply -f mutating-admission-policy-autopilot-cpu.yaml
 
 echo "GKE cluster deployment complete! Cluster ${CLUSTER_NAME} is ready."
 echo "Next step: Run step2_install_prerequisites.sh to install required CRDs and cert-manager."
