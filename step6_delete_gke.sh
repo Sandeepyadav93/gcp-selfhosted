@@ -17,7 +17,7 @@ export CLUSTER_NAME="${CLUSTER_NAME:-autopilot-mc}"
 export VPC_NAME="${CLUSTER_NAME}-vpc"
 export GKE_SUBNET_NAME="${CLUSTER_NAME}-subnet"
 export PSC_SUBNET_NAME="${CLUSTER_NAME}-psc"
-export PSC_COUNT="${PSC_COUNT:-5}"
+export PSC_COUNT="${PSC_COUNT:-8}"
 
 echo "Deleting GKE infrastructure with the following configuration:"
 echo "  GCP Project: ${CP_PROJECT_ID}"

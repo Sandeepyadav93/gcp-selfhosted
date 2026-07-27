@@ -1,6 +1,34 @@
 #!/bin/bash
 set -euo pipefail
 
+retry() {
+    local max_attempts=5
+    local delay=30
+    local attempt=1
+    local output
+    while true; do
+        output=$(mktemp)
+        if "$@" 2> >(tee "$output" >&2); then
+            rm -f "$output"
+            return 0
+        fi
+        if grep -qiE '502|503|429|rate limit|temporarily unavailable|connection reset|could not fetch resource' "$output"; then
+            rm -f "$output"
+            if (( attempt >= max_attempts )); then
+                echo "FAILED after ${max_attempts} attempts: $*"
+                return 1
+            fi
+            echo "Transient error on attempt ${attempt}/${max_attempts}. Retrying in ${delay}s..."
+            sleep "$delay"
+            (( attempt++ ))
+            (( delay *= 2 ))
+        else
+            rm -f "$output"
+            return 1
+        fi
+    done
+}
+
 # Source environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "${SCRIPT_DIR}/.env" ]; then
@@ -18,7 +46,7 @@ export VPC_NAME="${CLUSTER_NAME}-vpc"
 export GKE_SUBNET_NAME="${CLUSTER_NAME}-subnet"
 export PSC_SUBNET_NAME="${CLUSTER_NAME}-psc"
 export RELEASE_CHANNEL="${GKE_RELEASE_CHANNEL:-stable}"
-export PSC_COUNT="${PSC_COUNT:-5}"
+export PSC_COUNT="${PSC_COUNT:-8}"
 
 # IP Ranges
 export PRIMARY_RANGE="10.0.0.0/20"
@@ -26,12 +54,12 @@ export POD_RANGE="10.4.0.0/14"
 export SERVICE_RANGE="10.8.0.0/20"
 
 echo "Creating VPC network: ${VPC_NAME}"
-gcloud compute networks create "${VPC_NAME}" \
+retry gcloud compute networks create "${VPC_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --subnet-mode=custom
 
 echo "Creating GKE subnet: ${GKE_SUBNET_NAME}"
-gcloud compute networks subnets create "${GKE_SUBNET_NAME}" \
+retry gcloud compute networks subnets create "${GKE_SUBNET_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --network="${VPC_NAME}" \
@@ -40,13 +68,13 @@ gcloud compute networks subnets create "${GKE_SUBNET_NAME}" \
     --enable-private-ip-google-access
 
 echo "Creating Cloud Router: ${CLUSTER_NAME}-router"
-gcloud compute routers create "${CLUSTER_NAME}-router" \
+retry gcloud compute routers create "${CLUSTER_NAME}-router" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --network="${VPC_NAME}"
 
 echo "Creating Cloud NAT: ${CLUSTER_NAME}-nat"
-gcloud compute routers nats create "${CLUSTER_NAME}-nat" \
+retry gcloud compute routers nats create "${CLUSTER_NAME}-nat" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --router="${CLUSTER_NAME}-router" \
@@ -54,7 +82,7 @@ gcloud compute routers nats create "${CLUSTER_NAME}-nat" \
     --auto-allocate-nat-external-ips
 
 echo "Creating GKE Autopilot cluster: ${CLUSTER_NAME}"
-gcloud container clusters create-auto "${CLUSTER_NAME}" \
+retry gcloud container clusters create-auto "${CLUSTER_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --network="${VPC_NAME}" \
@@ -75,7 +103,7 @@ for i in $(seq 1 ${PSC_COUNT}); do
     PSC_RANGE="10.3.${i}.0/24"
 
     echo "Creating PSC subnet: ${PSC_SUBNET} with range ${PSC_RANGE}"
-    gcloud compute networks subnets create "${PSC_SUBNET}" \
+    retry gcloud compute networks subnets create "${PSC_SUBNET}" \
         --project="${CP_PROJECT_ID}" \
         --region="${GCP_REGION}" \
         --network="${VPC_NAME}" \

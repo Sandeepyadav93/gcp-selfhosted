@@ -1,6 +1,34 @@
 #!/bin/bash
 set -euo pipefail
 
+retry() {
+    local max_attempts=5
+    local delay=30
+    local attempt=1
+    local output
+    while true; do
+        output=$(mktemp)
+        if "$@" 2> >(tee "$output" >&2); then
+            rm -f "$output"
+            return 0
+        fi
+        if grep -qiE '502|503|429|rate limit|temporarily unavailable|connection reset|could not fetch resource' "$output"; then
+            rm -f "$output"
+            if (( attempt >= max_attempts )); then
+                echo "FAILED after ${max_attempts} attempts: $*"
+                return 1
+            fi
+            echo "Transient error on attempt ${attempt}/${max_attempts}. Retrying in ${delay}s..."
+            sleep "$delay"
+            (( attempt++ ))
+            (( delay *= 2 ))
+        else
+            rm -f "$output"
+            return 1
+        fi
+    done
+}
+
 # Source environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "${SCRIPT_DIR}/.env" ]; then
@@ -18,7 +46,7 @@ export VPC_NAME="${CLUSTER_NAME}-vpc"
 export GKE_SUBNET_NAME="${CLUSTER_NAME}-subnet"
 export PSC_SUBNET_NAME="${CLUSTER_NAME}-psc"
 export RELEASE_CHANNEL="${GKE_RELEASE_CHANNEL:-stable}"
-export PSC_COUNT="${PSC_COUNT:-5}"
+export PSC_COUNT="${PSC_COUNT:-8}"
 
 # GKE Standard specific settings
 export NUM_WORKER_PER_ZONE=${NUM_WORKER_PER_ZONE:-1}
@@ -40,13 +68,13 @@ echo "Region: ${GCP_REGION}"
 
 # --- 1. Create VPC network ---
 echo "Creating VPC network: ${VPC_NAME}"
-gcloud compute networks create "${VPC_NAME}" \
+retry gcloud compute networks create "${VPC_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --subnet-mode=custom
 
 # --- 2. Create GKE subnet ---
 echo "Creating GKE subnet: ${GKE_SUBNET_NAME}"
-gcloud compute networks subnets create "${GKE_SUBNET_NAME}" \
+retry gcloud compute networks subnets create "${GKE_SUBNET_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --network="${VPC_NAME}" \
@@ -56,14 +84,14 @@ gcloud compute networks subnets create "${GKE_SUBNET_NAME}" \
 
 # --- 3. Create Cloud Router ---
 echo "Creating Cloud Router: ${CLUSTER_NAME}-router"
-gcloud compute routers create "${CLUSTER_NAME}-router" \
+retry gcloud compute routers create "${CLUSTER_NAME}-router" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --network="${VPC_NAME}"
 
 # --- 4. Create Cloud NAT ---
 echo "Creating Cloud NAT: ${CLUSTER_NAME}-nat"
-gcloud compute routers nats create "${CLUSTER_NAME}-nat" \
+retry gcloud compute routers nats create "${CLUSTER_NAME}-nat" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --router="${CLUSTER_NAME}-router" \
@@ -72,7 +100,7 @@ gcloud compute routers nats create "${CLUSTER_NAME}-nat" \
 
 # --- 5. Create GKE Standard Regional Cluster ---
 echo "Creating GKE Standard Cluster... (This may take 10-15 minutes)"
-gcloud container clusters create "${CLUSTER_NAME}" \
+retry gcloud container clusters create "${CLUSTER_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
     --num-nodes="${NUM_WORKER_PER_ZONE}" \
@@ -100,7 +128,7 @@ for i in $(seq 1 ${PSC_COUNT}); do
     PSC_RANGE="10.3.${i}.0/24"
 
     echo "Creating PSC subnet: ${PSC_SUBNET} with range ${PSC_RANGE}"
-    gcloud compute networks subnets create "${PSC_SUBNET}" \
+    retry gcloud compute networks subnets create "${PSC_SUBNET}" \
         --project="${CP_PROJECT_ID}" \
         --region="${GCP_REGION}" \
         --network="${VPC_NAME}" \
@@ -112,7 +140,7 @@ echo "✅ PSC subnets creation complete! Created ${PSC_COUNT} PSC subnets."
 
 # --- 7. Create dedicated node pool for Prometheus ---
 echo "Creating dedicated Prometheus node pool: ${CLUSTER_NAME}-prometheus-pool"
-gcloud container node-pools create "${CLUSTER_NAME}-prometheus-pool" \
+retry gcloud container node-pools create "${CLUSTER_NAME}-prometheus-pool" \
     --project="${CP_PROJECT_ID}" \
     --cluster="${CLUSTER_NAME}" \
     --region="${GCP_REGION}" \
