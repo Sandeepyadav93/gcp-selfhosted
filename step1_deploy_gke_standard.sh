@@ -116,7 +116,10 @@ gcloud container node-pools create "${CLUSTER_NAME}-prometheus-pool" \
     --project="${CP_PROJECT_ID}" \
     --cluster="${CLUSTER_NAME}" \
     --region="${GCP_REGION}" \
-    --num-nodes="${PROM_NUM_NODES}" \
+    --num-nodes=0 \
+    --enable-autoscaling \
+    --total-min-nodes=1 \
+    --total-max-nodes="${PROM_NUM_NODES}" \
     --machine-type="${PROM_WORKER_TYPE}" \
     --max-pods-per-node="${MAX_PODS_PER_WORKER}" \
     --node-taints=dedicated=prometheus:NoSchedule \
