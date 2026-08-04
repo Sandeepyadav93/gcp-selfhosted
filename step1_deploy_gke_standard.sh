@@ -51,7 +51,7 @@ export PSC_COUNT="${PSC_COUNT:-8}"
 # GKE Standard specific settings
 export NUM_WORKER_PER_ZONE=${NUM_WORKER_PER_ZONE:-1}
 export WORKER_TYPE=${WORKER_TYPE:-n2-standard-4}
-export MAX_PODS_PER_WORKER=${MAX_PODS_PER_WORKER:-110}
+export MAX_PODS_PER_WORKER=${MAX_PODS_PER_WORKER:-256}
 
 # Prometheus dedicated node pool settings
 export PROM_WORKER_TYPE=${PROM_WORKER_TYPE:-e2-standard-4}
