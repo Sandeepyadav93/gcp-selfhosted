@@ -12,6 +12,7 @@ fi
 
 # Configuration
 export CP_PROJECT_ID="${CP_PROJECT_ID:-your-gcp-project-id}"
+export HC_PROJECT_ID="${HC_PROJECT_ID:-your-gcp-project-id}"
 export GCP_REGION="${GCP_REGION:-us-central1}"
 export HC_NAME="${HC_NAME:-hc1}"
 export HC_NAMESPACE="${HC_NAMESPACE:-clusters}"
@@ -96,7 +97,7 @@ echo "JWKS file created successfully"
 echo "Creating IAM resources with hypershift..."
 ${HYPERSHIFT_BIN} create iam gcp \
   --infra-id="${HC_NAME}" \
-  --project-id="${CP_PROJECT_ID}" \
+  --project-id="${HC_PROJECT_ID}" \
   --oidc-jwks-file=jwks.json | tee iam-output.json
 
 echo ""
@@ -106,7 +107,7 @@ echo ""
 echo "Creating infrastructure resources with hypershift..."
 ${HYPERSHIFT_BIN} create infra gcp \
   --infra-id="${HC_NAME}" \
-  --project-id="${CP_PROJECT_ID}" \
+  --project-id="${HC_PROJECT_ID}" \
   --region="${GCP_REGION}" | tee infra-output.json
 
 echo ""
@@ -149,7 +150,7 @@ ${HYPERSHIFT_BIN} create cluster gcp \
   --namespace=${HC_NAMESPACE} \
   --release-image=${RELEASE_IMAGE} \
   --pull-secret=${PULL_SECRET_PATH} \
-  --project=${CP_PROJECT_ID} \
+  --project=${HC_PROJECT_ID} \
   --region=${GCP_REGION} \
   --network=${NETWORK_NAME} \
   --subnet=${SUBNET_NAME} \
