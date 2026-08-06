@@ -1,5 +1,20 @@
 #!/bin/bash
-PROJECT="managed-cloud-pltaforms"
+set -euo pipefail
+
+# Source environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/.env" ]; then
+    source "${SCRIPT_DIR}/.env"
+    echo "✓ Sourced environment variables from .env"
+else
+    echo "WARNING: .env file not found at ${SCRIPT_DIR}/.env"
+fi
+
+export PROJECT="${CP_PROJECT_ID:-your-gcp-project-id}"
+
+echo "============================================"
+echo "Listing all resources for project: ${PROJECT}"
+echo "============================================"
 
 echo "=== COMPUTE ==="
 echo "Instances:"
