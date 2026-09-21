@@ -85,6 +85,7 @@ echo "Creating GKE Autopilot cluster: ${CLUSTER_NAME}"
 retry gcloud container clusters create-auto "${CLUSTER_NAME}" \
     --project="${CP_PROJECT_ID}" \
     --region="${GCP_REGION}" \
+    --logging=SYSTEM \
     --network="${VPC_NAME}" \
     --subnetwork="${GKE_SUBNET_NAME}" \
     --cluster-secondary-range-name="gke-pods" \

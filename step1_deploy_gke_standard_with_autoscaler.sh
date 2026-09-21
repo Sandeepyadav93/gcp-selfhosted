@@ -50,11 +50,13 @@ export PSC_COUNT="${PSC_COUNT:-8}"
 
 # GKE Standard specific settings
 export NUM_WORKER_PER_ZONE=${NUM_WORKER_PER_ZONE:-1}
-export WORKER_TYPE=${WORKER_TYPE:-n2-standard-4}
+export MIN_WORKER_PER_ZONE=${MIN_WORKER_PER_ZONE:-1}
+export MAX_WORKER_PER_ZONE=${MAX_WORKER_PER_ZONE:-8}
+export WORKER_TYPE=${WORKER_TYPE:-n2-highmem-16}
 export MAX_PODS_PER_WORKER=${MAX_PODS_PER_WORKER:-256}
 
 # Prometheus dedicated node pool settings
-export PROM_WORKER_TYPE=${PROM_WORKER_TYPE:-e2-standard-4}
+export PROM_WORKER_TYPE=${PROM_WORKER_TYPE:-n2-standard-16}
 export PROM_NUM_NODES=${PROM_NUM_NODES:-1}
 
 # IP Ranges
@@ -105,6 +107,9 @@ retry gcloud container clusters create "${CLUSTER_NAME}" \
     --region="${GCP_REGION}" \
     --logging=NONE \
     --num-nodes="${NUM_WORKER_PER_ZONE}" \
+    --enable-autoscaling \
+    --min-nodes="${MIN_WORKER_PER_ZONE}" \
+    --max-nodes="${MAX_WORKER_PER_ZONE}" \
     --machine-type="${WORKER_TYPE}" \
     --enable-ip-alias \
     --enable-dataplane-v2 \
