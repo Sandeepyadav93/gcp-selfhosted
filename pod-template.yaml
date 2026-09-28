@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PodTemplate
+metadata:
+  name: n2-custom-hc-buffer-template
+  namespace: default
+template:
+  metadata:
+    labels:
+      app: hc-buffer-unit
+  spec:
+    terminationGracePeriodSeconds: 0
+    nodeSelector:
+      cloud.google.com/compute-class: n2-custom
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values: ["hc-buffer-unit"]
+          topologyKey: topology.kubernetes.io/zone
+    containers:
+    - name: buffer-container
+      image: registry.k8s.io/pause:3.9
+      resources:
+        requests:
+          cpu: "1800m"
+          memory: "6500Mi"
+          ephemeral-storage: "25Gi"

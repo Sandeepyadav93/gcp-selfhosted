@@ -1,0 +1,14 @@
+apiVersion: cloud.google.com/v1
+kind: ComputeClass
+metadata:
+  name: n2-custom
+spec:
+  priorities:
+  - machineType: n2-highmem-16
+    spot: false
+    maxPodsPerNode: 256
+  autoscalingPolicy:
+    consolidationDelayMinutes: 10
+    consolidationThreshold: 50
+  nodePoolAutoCreation:
+    enabled: true
